@@ -1,0 +1,31 @@
+// Solution 1:
+
+    let
+        Source = Data,
+        Unpivot = Table.UnpivotOtherColumns ( Source, {}, "A", "V" ),
+        Combine = Table.FromRows ( List.Split ( Unpivot[V], 2 ), {"A", "V"} ),
+        Group = Table.Group ( Combine, "A", { "Sum", each List.Sum ( [V] ), type number}),
+        Sort = Table.Sort ( Group, { "A", Order.Ascending } )
+    in
+        Sort
+
+
+// Solution 2:
+
+    let
+        Source = Data,
+        Cols = Table.ToColumns ( Source ),
+        A = List.Combine ( List.Alternate ( Cols, 1, 1, 1 ) ),
+        V = List.Combine ( List.Alternate ( Cols, 1, 1, 0 ) ),
+        Zip = List.Zip ( { A, V } ),
+        Transform = List.TransformMany (
+            List.Distinct ( A ),
+            ( x ) => { List.Zip ( List.Select ( Zip, ( z ) => z{0} = x ) ){1} },
+            ( x, y ) => { x, List.Sum ( y ) }
+        ),
+        Result = Table.Sort (
+            Table.FromRows ( Transform, { "Alphabets", "sum" } ),
+            { "Alphabets", Order.Ascending }
+        )
+    in
+        Result

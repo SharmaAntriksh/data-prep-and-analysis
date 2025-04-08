@@ -1,0 +1,25 @@
+// Solution 1:
+
+    =LET(
+        Source, A2:J12,
+        ColCount, COLUMNS(Source),
+        Seq, SEQUENCE(ColCount),
+        A, FILTER(Seq, MOD(Seq, 2) = 1),
+        B, FILTER(Seq, MOD(Seq, 2) = 0),
+        Headers, TOCOL(CHOOSECOLS(Source, A)),
+        Data, TOCOL(CHOOSECOLS(Source, B)),
+        Acc, DROP(
+            REDUCE(
+                "",
+                UNIQUE(Headers),
+                LAMBDA(state, current,
+                    VSTACK(
+                        state,
+                        HSTACK(current, SUM(FILTER(Data, Headers = current)))
+                    )
+                )
+            ),
+            1
+        ),
+        VSTACK({"Alphabets", "Sum"}, SORT(Acc, 1))
+    )

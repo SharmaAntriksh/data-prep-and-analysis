@@ -1,0 +1,30 @@
+// Solution 1:
+
+    =LET(
+        ID, B3:B7,
+        Result, MAP(
+            ID,
+            LAMBDA(string,
+                LET(
+                    a, SEQUENCE(LEN(string)),
+                    b, MID(string, a, 1),
+                    c, REDUCE(
+                        0,
+                        b,
+                        LAMBDA(
+                            state, current, 
+                            VSTACK(
+                                state, 
+                                IF(current = "/", MAX(state) + 1, 0)
+                            )
+                        )
+                    ),
+                    d, DROP(c, 1),
+                    e, IF(b = "/", d, b),
+                    f, TEXTJOIN("", TRUE, e),
+                    f
+                )
+            )
+        ),
+        Result
+    )

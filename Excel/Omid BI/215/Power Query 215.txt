@@ -1,0 +1,28 @@
+// Solution 1:
+
+    let
+        Source = Table,
+        Transform = List.Transform (
+            Source[ID],
+            ( x ) =>
+                let
+                    a = Text.ToList ( x ),
+                    b = List.Skip (
+                        List.Accumulate (
+                            a,
+                            { 0 },
+                            ( s, c ) => s & { { 0, List.Max ( s ) + 1 }{Byte.From ( c = "/" )} }
+                        )
+                    ),
+                    c = Text.Combine (
+                        List.Transform (
+                            List.Zip ( { a, b } ),
+                            ( y ) => Text.From ( { y{0}, y{1} }{Byte.From ( y{0} = "/" )} )
+                        )
+                    )
+                in
+                    c
+        ),
+        ToTable = Table.FromColumns ( { Transform }, type table [ ID = text ] )
+    in
+        ToTable

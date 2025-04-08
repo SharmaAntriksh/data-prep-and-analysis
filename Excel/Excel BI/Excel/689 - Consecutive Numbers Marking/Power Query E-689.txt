@@ -1,0 +1,44 @@
+let
+    Source = Table,
+    Transform = List.TransformMany ( 
+        List.Distinct ( Source[ID] ), 
+        (x) => {
+        let 
+            Data = 
+                Table.SelectRows ( Source, each [ID] = x ), 
+            Result = 
+                Table.Group ( 
+                    Data, 
+                    "Number", 
+                    { 
+                    "T", 
+                    each 
+                        let 
+                            a = [Number], 
+                            b = List.Count ( a ), 
+                            c = List.Repeat ( {b}, b ), 
+                            d = Table.FromColumns ( 
+                                Table.ToColumns ( _ ) & { c }, 
+                                {"ID", "Number", "Answer" } 
+                            )
+                        in 
+                            d
+                    }, 
+                    GroupKind.Local, 
+                    (x, y) => 
+                        let 
+                            a = {null} & Data[Number],
+                            b = List.PositionOf ( a, y ),
+                            c = ( a{b} - a{b - 1} ) <> 1,
+                            d = Byte.From ( c ) 
+                        in 
+                            d 
+            )[T]
+        in 
+            Result
+        },
+        (x, y) => Table.Combine ( y ) 
+    ),
+    Result = Table.Combine ( Transform )
+in
+    Result

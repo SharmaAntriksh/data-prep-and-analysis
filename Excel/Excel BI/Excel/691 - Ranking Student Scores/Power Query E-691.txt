@@ -1,0 +1,130 @@
+// Solution 1:
+
+    let
+        Source = Table.AddIndexColumn ( Table, "Index", 1, 1, Int64.Type ),
+        Rank =
+            let
+                a = List.Sort ( List.Distinct ( Source[Score] ) ),
+                b = { 1 .. List.Count ( a ) },
+                c = List.Zip ( { a, b } )
+            in
+                Table.FromRows ( c, type table [ Score = Int64.Type, Rank1 = Int64.Type ] ),
+        Join = Table.Join ( Source, "Score", Rank, "Score" ),
+        Group = Table.Group (
+            Join,
+            "Rank1",
+            {
+                "T",
+                each
+                    let
+                        a = Table.AddIndexColumn ( _, "I2", 1, 1, Int64.Type ),
+                        b = Table.AddColumn (
+                            a,
+                            "Rank2",
+                            each Number.From (
+                                Text.From ( [Rank1] )
+                                    & "."
+                                    & Text.PadStart ( Text.From ( [I2] ), 2, "0" )
+                            ),
+                            type number
+                        )
+                    in
+                        b
+            }
+        ),
+        Combine = Table.Sort ( Table.Combine ( Group[T] ), { "Index", Order.Ascending } ),
+        Select = Table.SelectColumns ( Combine, { "Student", "Score", "Rank1", "Rank2" } )
+    in
+        Select
+
+
+// Solution 2:
+
+    let
+        Source = Table,
+        Rank =
+            let
+                a = List.Sort ( List.Distinct ( Source[Score] ) ),
+                b = { 1 .. List.Count ( a ) },
+                c = List.Zip ( { a, b } )
+            in
+                Table.FromRows ( c, type table [ Score = Int64.Type, Rank1 = Int64.Type ] ),
+        Join = Table.Join ( Source, "Score", Rank, "Score" ),
+        Group = Table.Group (
+            Join,
+            "Rank1",
+            {
+                "T",
+                each
+                    let
+                        a = Table.AddIndexColumn ( _, "I2", 1, 1, Int64.Type ),
+                        b = Table.AddColumn (
+                            a,
+                            "Rank2",
+                            each Number.From (
+                                Text.From ( [Rank1] )
+                                    & "."
+                                    & Text.PadStart ( Text.From ( [I2] ), 2, "0" )
+                            ),
+                            type number
+                        )
+                    in
+                        b
+            }
+        ),
+        Combine = Table.Combine ( Group[T] ),
+        Select = Table.SelectColumns ( Combine, { "Student", "Score", "Rank1", "Rank2" } ),
+        Sort = Table.Sort (
+            Select,
+            { each Number.From ( Text.Select ( [Student], { "0" .. "9" } ) ), Order.Ascending }
+        )
+    in
+        Sort
+
+// Solution 3:
+
+    let
+        Source = Table.AddColumn ( Table, "Rank1", each 0, Int64.Type ),
+        Ranks = Table.AddIndexColumn (
+            Table.Sort ( Table.Group ( Source, "Score", {} ), { "Score", Order.Ascending } ),
+            "Rank",
+            1,
+            1,
+            Int64.Type
+        ),
+        Acc = List.Skip (
+            List.Accumulate (
+                Table.ToRows ( Ranks ),
+                { Source },
+                ( s, c ) =>
+                    s
+                        & {
+                            Table.AddColumn (
+                                Table.AddIndexColumn (
+                                    Table.TransformColumns (
+                                        Table.SelectRows ( List.First ( s ), each [Score] = c{0} ),
+                                        { "Rank1", each c{1}, Int64.Type }
+                                    ),
+                                    "Index",
+                                    1,
+                                    1,
+                                    Int64.Type
+                                ),
+                                "Rank2",
+                                each Number.From (
+                                    Text.From ( [Rank1] )
+                                        & "."
+                                        & Text.PadStart ( Text.From ( [Index] ), 2, "0" )
+                                ),
+                                type number
+                            )
+                        }
+            )
+        ),
+        Select = Table.SelectColumns ( Table.Combine ( Acc ), { "Student", "Score", "Rank1", "Rank2" } ),
+        Sort = Table.Sort (
+            Select,
+            { each Number.From ( Text.Select ( [Student], { "0" .. "9" } ) ), Order.Ascending }
+        )
+    in
+    Sort

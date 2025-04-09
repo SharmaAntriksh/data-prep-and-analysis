@@ -111,11 +111,7 @@
                                     Int64.Type
                                 ),
                                 "Rank2",
-                                each Number.From (
-                                    Text.From ( [Rank1] )
-                                        & "."
-                                        & Text.PadStart ( Text.From ( [Index] ), 2, "0" )
-                                ),
+                                each [Rank1] + [Index] / 100,
                                 type number
                             )
                         }

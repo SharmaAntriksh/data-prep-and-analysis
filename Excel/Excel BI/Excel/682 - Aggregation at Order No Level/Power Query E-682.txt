@@ -1,0 +1,130 @@
+// Solution 1:
+
+    let
+        Source = Table,
+        Split = Table.TransformColumns (
+            Table,
+            List.Transform (
+                Table.ColumnNames ( Source ),
+                ( c ) => { c, each try Text.Split ( _, ", " ) otherwise { _ } }
+            )
+        ),
+        Transform = Table.CombineColumns (
+            Split,
+            Table.ColumnNames ( Split ),
+            each
+                let
+                    a = Table.FillDown (
+                        Table.FromColumns (
+                            _,
+                            type table [ Name = text, Order No = Int64.Type, Amount = number ]
+                        ),
+                        { "Name", "Amount" }
+                    ),
+                    b = Table.TransformColumns (
+                        a,
+                        {
+                            { "Amount", each _ / Table.RowCount ( a ), type number },
+                            { "Order No", each Number.FromText ( _ ), Int64.Type }
+                        }
+                    )
+                in
+                    b,
+            "x"
+        )[x],
+        Combine = Table.Combine ( Transform ),
+        Group = Table.Group (
+            Combine,
+            { "Order No" },
+            {
+                { "Names", each Text.Combine ( [Name], ", " ), type text },
+                { "Amount", each List.Sum ( [Amount] ), type number }
+            }
+        ),
+        Sort = Table.Sort ( Group, { "Order No", Order.Ascending } )
+    in
+        Sort
+
+
+// Solution 2:
+
+let
+    Source = Table,
+    Rows = Table.ToRows ( Source ),
+    Transform = List.TransformMany (
+        Rows,
+        ( x ) =>
+            let
+                a = List.Transform ( Text.Split ( x{1}, ", " ), Number.From ),
+                b = List.InsertRange (
+                    List.RemoveRange (
+                        List.Transform ( x, ( i ) => List.Repeat ( { i }, List.Count ( a ) ) ),
+                        1,
+                        1
+                    ),
+                    1,
+                    { a }
+                ),
+                c = Table.FromColumns (
+                    b,
+                    type table [ Name = text, Order No = Int64.Type, Amount = number ]
+                ),
+                d = Table.TransformColumns (
+                    c,
+                    { "Amount", each _ / List.Count ( a ), type number }
+                )
+            in
+                { d },
+        ( x, y ) => y
+    ),
+    Combine = Table.Combine ( Transform ),
+    Group = Table.Group (
+        Combine,
+        "Order No",
+        {
+            { "Names", each Text.Combine ( [Name], ", " ), type text },
+            { "Amount", each List.Sum ( [Amount] ), type number }
+        }
+    ),
+    Sort = Table.Sort ( Group, "Order No" )
+in
+    Sort
+
+
+// Solution 3:
+
+    let
+        Source = Table,
+        a = Table.TransformRows (
+            Source,
+            each
+                let
+                    a = [
+                        Name    = [Name],
+                        OrderNo = List.Transform ( Text.Split ( [Order No], ", " ), Number.From ),
+                        Amount  = [Amount] / List.Count ( OrderNo )
+                    ],
+                    b = Record.ToList ( a ),
+                    c = List.Transform ( b, ( x ) => if x is list then x else { x } ),
+                    d = Table.FillDown (
+                        Table.FromColumns (
+                            c,
+                            type table [ Name = text, Order No = Int64.Type, Amount = number ]
+                        ),
+                        { "Name", "Amount" }
+                    )
+                in
+                    d
+        ),
+        b = Table.Combine ( a ),
+        c = Table.Group (
+            b,
+            { "Order No" },
+            {
+                { "Name", each Text.Combine ( [Name], ", " ), type text },
+                { "Amount", each List.Sum ( [Amount] ), type number }
+            }
+        ),
+        d = Table.Sort ( c, { "Order No", Order.Ascending } )
+    in
+        d

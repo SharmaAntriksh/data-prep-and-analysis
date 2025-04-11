@@ -1,0 +1,60 @@
+// Solution 1:
+
+    let
+        Source = Table, 
+        A = Table.CombineColumns ( Source, { "Team 1", "Team 2" }, each _, "Teams" ), 
+        B = Table.TransformColumns (
+            A, 
+            { "Result", each List.Transform ( Text.Split ( _, "-" ), Number.From ), type list }
+        ), 
+        C = Table.CombineColumns (
+            B, 
+            { "Teams", "Result" }, 
+            each Table.SelectRows (
+                Table.AddRankColumn (
+                    Table.FromColumns ( _, { "Team", "Score" } ), 
+                    "Rank", 
+                    { "Score", Order.Descending }
+                ), 
+                each [Rank] = 1
+            )[Team], 
+            "Combine"
+        ), 
+        D = List.Mode ( List.Combine ( C[Combine] ) )
+    in
+        D
+
+// Solution 2:
+
+    let
+        Source = Table.SelectRows ( Table, each Expression.Evaluate ( [Result] ) <> 0 ),
+        A = Table.CombineColumns ( Source, { "Team 1", "Team 2" }, each _, "Teams" ),
+        B = Table.TransformColumns (
+            A,
+            { "Result", each List.Transform ( Text.Split ( _, "-" ), Number.From ), type list }
+        ),
+        C = Table.CombineColumns (
+            B,
+            { "Teams", "Result" },
+            each Table.First (
+                Table.Sort ( 
+                    Table.FromColumns ( _, { "Team", "Score" } ), 
+                    { "Score", Order.Descending }
+                )
+            )[Team],
+            "Teams"
+        ),
+        D = Table.ToRows ( 
+            Table.Group ( C, "Teams", { "Count", each Table.RowCount ( _ ), Int64.Type } ) 
+        ),
+        E = List.Select (
+            D,
+            ( x ) => List.Count ( 
+                List.Select ( 
+                    Source[Team 1] & Source[Team 2], 
+                    ( z ) => z = x{0} 
+                ) 
+            ) = x{1}
+        ){0}{0}
+    in
+        E

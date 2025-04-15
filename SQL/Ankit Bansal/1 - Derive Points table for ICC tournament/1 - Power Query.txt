@@ -1,0 +1,48 @@
+-- Solution 1
+
+    let
+        Source = Table,
+        Countries = List.Distinct ( Source[Team_1] & Source[Team_2] ),
+        Transform = List.Transform (
+            Countries,
+            ( x ) =>  {
+                x,
+                List.Count ( List.Select ( Source[Team_1] & Source[Team_2], each _ = x ) ),
+                List.Count ( List.Select ( Source[Winner], each _ = x ) ),
+                List.Count (
+                    List.Select ( Table.SelectRows ( Source, each [Team_1] = x or [Team_2] = x )[Winner], each _ <> x )
+                )
+            }
+        ),
+        Combine = Table.FromRows (
+            Transform,
+            type table [ Team Name = text, Matches Played = Int64.Type, Wins = Int64.Type, Losses = Int64.Type ]
+        ),
+        Sort = Table.Sort ( Combine, { { "Matches Played", Order.Descending }, { "Wins", Order.Descending } } )
+    in
+        Sort
+
+-- Solution 2:
+
+    let
+        Source = Table,
+        A = Table.RenameColumns (
+            Table.AddColumn ( Source, "Win", each Byte.From ( [Team_1] = [Winner] ), Int64.Type )[[Team_1], [Win]],
+            { "Team_1", "Team" }
+        ),
+        B = Table.RenameColumns (
+            Table.AddColumn ( Source, "Win", each Byte.From ( [Team_2] = [Winner] ), Int64.Type )[[Team_2], [Win]],
+            { "Team_2", "Team" }
+        ),
+        C = Table.Group (
+            A & B,
+            "Team",
+            {
+                { "Matches Played", each Table.RowCount ( _ ), Int64.Type },
+                { "Wins", each List.Sum ( [Win] ), Int64.Type },
+                { "Lossess", each Table.RowCount ( _ ) - List.Sum ( [Win] ), Int64.Type }
+            }
+        ),
+        D = Table.Sort ( C, { { "Matches Played", Order.Descending }, { "Wins", Order.Descending } } )
+    in
+        D

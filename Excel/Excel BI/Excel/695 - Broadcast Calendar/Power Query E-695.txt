@@ -1,0 +1,42 @@
+// Solution 1:
+
+    let
+        Years = { 2025, 2026, 2027 },
+        Fx = ( Year ) =>
+            let
+                Date = #date ( Year, 01, 01 ),
+                Mon = Day.Monday,
+                BroadcastList = List.Generate (
+                    () =>  [
+                        Start       = Date.StartOfWeek ( Date, Mon ),
+                        End         = Date.EndOfWeek ( Start, Mon ),
+                        WeekCounter = 1
+                    ],
+                    each [Start]
+                        < Date.StartOfWeek ( Date.EndOfYear ( Date ), Mon ),
+                    each [
+                        Start = Date.AddDays ( [End], 1 ),
+                        End = Date.EndOfWeek ( Start, Mon ),
+                        WeekCounter =
+                            if Date.Month ( End ) <> Date.Month ( Start ) or Date.Day ( Start ) = 1 
+                            then 1
+                            else [WeekCounter] + 1
+                    ],
+                    each [ From = [Start], To = [End], Month Week = [WeekCounter] ]
+                ),
+                AddMonth = Table.AddColumn (
+                    Table.FromRecords (
+                        BroadcastList,
+                        type table [ From = date, To = date, Month Week = Int64.Type ]
+                    ),
+                    "Month",
+                    each Text.Start ( Date.MonthName ( [To] ), 3 ),
+                    type text
+                ),
+                AddYearWeek = Table.AddIndexColumn ( AddMonth, "Year Week", 1, 1, Int64.Type )
+            in
+                AddYearWeek,
+        Broadcast = List.Transform ( Years, Fx ),
+        Combine = Table.Combine ( Broadcast )
+    in
+        Combine

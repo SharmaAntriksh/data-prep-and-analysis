@@ -1,0 +1,114 @@
+// Solution 1:
+    let
+        Source = Table.DemoteHeaders ( Table ),
+        Split = Table.PromoteHeaders (
+            Table.SplitColumn (
+                Source,
+                "Column1",
+                Splitter.SplitTextByDelimiter ( " - ", QuoteStyle.Csv ),
+                { "Column1.1", "Column1.2", "Column1.3", "Column1.4" }
+            )
+        ),
+        ChangedType = Table.TransformColumnTypes (
+            Split,
+            { { "Date", type date }, { "Org", type text }, { "Revenue", Int64.Type }, { "Cost", Int64.Type } }
+        ),
+        Profit = Table.AddColumn ( ChangedType, "Profit", each [Revenue] - [Cost], Int64.Type )[[Date], [Org], [Profit]],
+        MonthName = Table.TransformColumns ( Profit, { "Date", each Text.Start ( Date.MonthName ( _ ), 3 ), type text } ),
+        Pivot = Table.Pivot ( MonthName, List.Distinct ( MonthName[Date] ), "Date", "Profit", List.Sum ),
+        AllMonths = List.Transform (
+            { 1 .. Date.Month ( List.Max ( ChangedType[Date] ) ) },
+            each Text.Start ( Date.MonthName ( #date ( 2025, _, 01 ) ), 3 )
+        ),
+        Total =
+            let
+                a = List.Transform ( AllMonths, each List.Sum ( ( try Table.Column ( Pivot, _ ) otherwise {} ) ) ),
+                b = Table.FromRows ( { { "Total" } & a }, { "Org" } & AllMonths )
+            in
+                b,
+        Append = Table.SelectColumns ( Pivot & Total, { "Org" } & AllMonths )
+    in
+        Append
+
+
+// Solution 2:
+
+    let
+        Source = Table.DemoteHeaders ( Table )[Column1],
+        A = Table.Combine (
+            List.TransformMany (
+                List.Skip ( Source ),
+                ( x ) => { List.Transform ( Text.Split ( x, " - " ), Value.FromText ) },
+                ( x, y ) =>
+                    let
+                        a = List.LastN ( y, 2 ),
+                        b = a{0} - a{1}
+                    in
+                        Table.FromRows ( { List.RemoveLastN ( y, 2 ) & { b } }, { "Date", "Org", "Profit" } )
+            )
+        ),
+        B = Table.TransformColumns ( A, { "Date", each Text.Start ( Date.MonthName ( _ ), 3 ), type text } ),
+        C = List.Transform (
+            { 1 .. Date.Month ( List.Max ( A[Date] ) ) },
+            each Text.Start ( Date.MonthName ( #date ( 2025, _, 01 ) ), 3 )
+        ),
+        D = Table.FromColumns ( { List.Sort ( List.Distinct ( B[Org] ) ) & { "Total" } }, type table [ Org = text ] ),
+        Acc = List.Accumulate (
+            C,
+            D,
+            ( s, c ) =>
+                Table.AddColumn (
+                    s,
+                    c,
+                    ( x ) =>
+                        List.Sum (
+                            if x[Org] = "Total" then
+                                Table.SelectRows ( B, ( y ) => y[Date] = c )[Profit]
+                            else
+                                Table.SelectRows ( B, ( y ) => y[Date] = c and y[Org] = x[Org] )[Profit]
+                        ),
+                    type number
+                )
+        )
+    in
+        Acc
+
+// Solution 3:
+
+    let
+        Source = Table.DemoteHeaders ( Table )[Column1],
+        A = Table.Combine (
+            List.TransformMany (
+                List.Skip ( Source ),
+                ( x ) => { List.Transform ( Text.Split ( x, " - " ), Value.FromText ) },
+                ( x, y ) =>
+                    let
+                        a = List.LastN ( y, 2 ),
+                        b = a{0} - a{1}
+                    in
+                        Table.FromRows ( { List.RemoveLastN ( y, 2 ) & { b } }, { "Date", "Org", "Profit" } )
+            )
+        ),
+        B = Table.TransformColumns ( A, { "Date", each Date.StartOfMonth ( _ ), type date } ),
+        C = List.Generate ( () => List.Min ( B[Date] ), each _ <= List.Max ( B[Date] ), each Date.AddMonths ( _, 1 ) ),
+        D = Table.FromColumns ( { List.Sort ( List.Distinct ( B[Org] ) ) & { "Total" } }, type table [ Org = text ] ),
+        E = List.Accumulate (
+            C,
+            D,
+            ( s, c ) =>
+                Table.AddColumn (
+                    s,
+                    Date.ToText ( c, [Format = "yyyy-MM-dd"] ),
+                    ( x ) =>
+                        List.Sum (
+                            if x[Org] = "Total" then
+                                Table.SelectRows ( B, ( y ) => y[Date] = c )[Profit]
+                            else
+                                Table.SelectRows ( B, ( y ) => y[Date] = c and y[Org] = x[Org] )[Profit]
+                        ),
+                    type number
+                )
+        ),
+        F = Table.TransformColumnNames ( E, each if _ = "Org" then _ else Text.Start ( Date.MonthName ( Date.FromText ( _ ) ), 3 ) )
+    in
+        F

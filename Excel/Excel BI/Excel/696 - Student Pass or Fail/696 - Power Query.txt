@@ -1,0 +1,23 @@
+let
+    Source = Table,
+    Replace = ( T, L ) =>
+        let
+            a = Table.SelectRows ( T, each List.Contains ( L, [Subject] ) ),
+            b = List.ReplaceMatchingItems ( a[Pass], { { "Y", 1 }, { "N", 0 } } ),
+            c = List.Max ( b )
+        in
+            c ?? 1,
+    Group = Table.Group (
+        Source,
+        "Student",
+        {
+            "Result",
+            each { "Fail", "Pass" }{
+                Replace ( _, { "Maths", "Science" } ) * Replace ( _, { "Philosophy" } ) * Replace ( _, { "English" } )
+            },
+            type text
+        }
+    ),
+    Sort = Table.Sort ( Group, { "Student", Order.Ascending } )
+in
+    Sort

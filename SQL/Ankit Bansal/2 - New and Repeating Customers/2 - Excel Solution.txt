@@ -1,0 +1,23 @@
+=LET(
+    CustomerID, Orders[customer_id],
+    OrderDate, Orders[order_date],
+    CustomerFirstPurchase, GROUPBY(CustomerID, OrderDate, MIN, 0, 0),
+    Merge, XLOOKUP(
+        CustomerID,
+        CHOOSECOLS(CustomerFirstPurchase, 1),
+        CHOOSECOLS(CustomerFirstPurchase, 2)
+    ),
+    Flag, IF(Merge = OrderDate, 1, 0),
+    Group, GROUPBY(
+        OrderDate,
+        Flag,
+        HSTACK(SUM, LAMBDA(x, SUM(IF(x = 1, 0, 1)))),
+        0,
+        0
+    ),
+    Result, VSTACK(
+        {"Order Date","New Customer","Repeat Cutomer"},
+        DROP(Group, 1)
+    ),
+    Result
+)

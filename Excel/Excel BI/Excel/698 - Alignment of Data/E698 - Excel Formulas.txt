@@ -1,0 +1,44 @@
+-- Solution 1:
+
+    =LET(
+        Data, A3:A24,
+        grp, GROUPBY(Data, Data, COUNTA, 0, 0),
+        N, MAX(CHOOSECOLS(grp, -1)),
+        unq, SORT(CHOOSECOLS(grp, 1)),
+        acc, REDUCE(
+            SEQUENCE(, N) & "",
+            unq,
+            LAMBDA(state, current,
+                VSTACK(
+                    state,
+                    LET(
+                        Filt, FILTER(Data, Data = current),
+                        ToRow_, TOROW(Filt),
+                        Expand_, EXPAND(ToRow_, , N, ""),
+                        Expand_
+                    )
+                )
+            )
+        ),
+        acc
+    )
+
+-- Solution 2:
+
+    =LET(
+        Data, A3:A24,
+        unq, SORT(UNIQUE(Data)),
+        acc, DROP(
+            REDUCE(
+                "",
+                unq,
+                LAMBDA(s, c,
+                    VSTACK(s, TOROW(FILTER(Data, Data = c)))
+                )
+            ),
+            1
+        ),
+        FillNa, IFNA(acc, ""),
+        Result, VSTACK(SEQUENCE(, COLUMNS(FillNa)) & "", FillNa),
+        Result
+    )

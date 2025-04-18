@@ -1,0 +1,19 @@
+-- Solution 1:
+
+    let
+        Source = Table,
+        A = List.Sort ( List.Distinct ( Source[Alphabets] ) ),
+        B = List.Transform (
+            A,
+            ( x ) =>
+                let
+                    a = Table.SelectRows ( Source, each [Alphabets] = x )[Alphabets],
+                    b = Table.FromRows ( { a }, { "1" .. Text.From ( List.Count ( a ) ) } )
+                in
+                    b
+        ),
+        C = Table.Combine ( B ),
+        D = List.Transform ( Table.ColumnNames ( C ), each { _, type text } ),
+        E = Table.TransformColumnTypes ( C, D )
+    in
+        E

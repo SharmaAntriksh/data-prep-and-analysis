@@ -1,0 +1,30 @@
+let
+    Source = Data,
+    ColumnNames = 
+        List.Zip ( 
+            { Table.ColumnNames ( Source ) } 
+                & { { "Project", "Type", "Q1", "Q2", "Q3", "Q4" } } 
+        ),
+    Group = 
+        Table.Group (
+            Source,
+            "Column1",
+            {
+                "T",
+                ( x ) =>
+                    [
+                        a = Table.Skip ( x, 1 ),
+                        b = Table.RenameColumns ( a, ColumnNames ),
+                        c = Table.AddColumn ( b, "Factory", each Text.AfterDelimiter ( x{0}[Column1], "-" ), type text ),
+                        d = Table.FillDown ( c, { "Project" } ),
+                        e = Table.UnpivotOtherColumns ( d, { "Factory", "Project", "Type" }, "Quarter", "V" ),
+                        f = Table.Pivot ( e, List.Distinct ( e[Type] ), "Type", "V", ( x ) as number => List.Sum ( x ) ),
+                        g = Table.ReorderColumns ( f, { "Factory", "Quarter", "Project", "Budget", "Actual" } )
+                    ][g]
+            },
+            1,
+            ( x, y ) => Byte.From ( Text.Contains ( y ?? "", "Factory" ) )
+        ),
+    Combine = Table.Combine ( Group[T] )
+in
+    Combine
